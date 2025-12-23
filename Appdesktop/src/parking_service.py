@@ -34,34 +34,40 @@ class ParkingService(QObject):
         Xử lý xe vào
         Returns: (success, message)
         """
-        logger.info(f"Processing entry for card: {card_id}")
+        logger.info(f"[ENTRY] ========== Processing entry for card: {card_id} ==========")
         
         # Check thẻ hợp lệ
         card = db.get_card(card_id)
+        logger.info(f"[ENTRY] get_card result: {card}")
         if not card:
             msg = f"Thẻ {card_id} chưa đăng ký"
-            logger.warning(msg)
+            logger.warning(f"[ENTRY] FAILED: {msg}")
             self.entry_failed.emit(msg)
             return False, msg
         
         # Check xe đã trong bãi chưa
         active_session = db.get_active_session(card_id)
+        logger.info(f"[ENTRY] get_active_session result: {active_session}")
         if active_session:
-            msg = f"Thẻ {card_id} đang có xe trong bãi"
-            logger.warning(msg)
+            msg = f"Thẻ {card_id} đang có xe trong bãi (session #{active_session['id']})"
+            logger.warning(f"[ENTRY] BLOCKED: {msg}")
             self.entry_failed.emit(msg)
             return False, msg
         
+        logger.info(f"[ENTRY] No active session found, proceeding...")
+        
         # Check slot trống
         slot = db.get_available_slot()
+        logger.info(f"[ENTRY] get_available_slot result: {slot}")
         if slot is None:
             msg = "Bãi xe đã đầy"
-            logger.warning(msg)
+            logger.warning(f"[ENTRY] FAILED: {msg}")
             self.entry_failed.emit(msg)
             return False, msg
         
         # Tạo session
         plate_number = card.get("plate_number", "")
+        logger.info(f"[ENTRY] Creating session: card={card_id}, plate={plate_number}, slot={slot}")
         session_id = db.create_session(card_id, plate_number, slot)
         
         result = {
@@ -72,7 +78,7 @@ class ParkingService(QObject):
             "entry_time": datetime.now().strftime("%H:%M:%S")
         }
         
-        logger.info(f"Entry success: {result}")
+        logger.info(f"[ENTRY] SUCCESS: {result}")
         self.entry_success.emit(result)
         self._emit_slot_update()
         

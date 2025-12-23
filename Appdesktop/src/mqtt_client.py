@@ -65,8 +65,14 @@ class MQTTWorker(QThread):
     def _on_connect(self, client, userdata, flags, reason_code, properties=None):
         if reason_code == 0:
             logger.info("MQTT connected successfully")
+            logger.info(f"Subscribing to: {MQTT_TOPICS['entry_card']}")
             client.subscribe(MQTT_TOPICS["entry_card"])
+            logger.info(f"Subscribing to: {MQTT_TOPICS['exit_card']}")
             client.subscribe(MQTT_TOPICS["exit_card"])
+            logger.info(f"Subscribing to: {MQTT_TOPICS['esp32_heartbeat']}")
+            client.subscribe(MQTT_TOPICS["esp32_heartbeat"])
+            client.subscribe(MQTT_TOPICS["slot_status"])
+            client.subscribe(MQTT_TOPICS["slot_change"])
             self.connected.emit()
         else:
             logger.error(f"MQTT connect failed: {reason_code}")
@@ -79,7 +85,9 @@ class MQTTWorker(QThread):
     def _on_message(self, client, userdata, msg):
         try:
             topic = msg.topic
-            payload = json.loads(msg.payload.decode())
+            payload_str = msg.payload.decode()
+            logger.info(f"[MQTT RAW] Topic: {topic}, Payload: {payload_str}")
+            payload = json.loads(payload_str)
             self.message_received.emit(topic, payload)
         except Exception as e:
             logger.error(f"MQTT message error: {e}")
@@ -97,6 +105,9 @@ class MQTTClient(QObject):
     error = Signal(str)
     entry_card_detected = Signal(str)
     exit_card_detected = Signal(str)
+    esp32_heartbeat = Signal(dict)  # ESP32 heartbeat signal
+    slot_status_updated = Signal(dict)  # Trạng thái tất cả slot
+    slot_changed = Signal(int, bool)  # slot number, occupied
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -139,7 +150,7 @@ class MQTTClient(QObject):
             self.reconnect_timer.start(5000)
     
     def _on_message(self, topic: str, payload: dict):
-        logger.info(f"MQTT message: {topic} -> {payload}")
+        logger.info(f"[MQTTClient] Received: {topic} -> {payload}")
         
         if topic == MQTT_TOPICS["entry_card"]:
             card_id = payload.get("card_id", "")
@@ -149,6 +160,17 @@ class MQTTClient(QObject):
             card_id = payload.get("card_id", "")
             if card_id:
                 self.exit_card_detected.emit(card_id)
+        elif topic == MQTT_TOPICS["esp32_heartbeat"]:
+            logger.info(f"[ESP32 HEARTBEAT] Received: {payload}")
+            self.esp32_heartbeat.emit(payload)
+        elif topic == MQTT_TOPICS["slot_status"]:
+            logger.info(f"[SLOT STATUS] Received: {payload}")
+            self.slot_status_updated.emit(payload)
+        elif topic == MQTT_TOPICS["slot_change"]:
+            slot = payload.get("slot", 0)
+            occupied = payload.get("occupied", False)
+            logger.info(f"[SLOT CHANGE] Slot {slot}: {'Occupied' if occupied else 'Available'}")
+            self.slot_changed.emit(slot, occupied)
     
     def _on_error(self, msg: str):
         self.error.emit(msg)
@@ -168,6 +190,18 @@ class MQTTClient(QObject):
     
     def send_status(self, slots_available: int):
         self.publish(MQTT_TOPICS["status"], {"slots_available": slots_available})
+    
+    def send_lcd_entry(self, card_id: str, slot: int):
+        """Gửi thông báo xe vào hiển thị trên LCD"""
+        self.publish(MQTT_TOPICS["lcd_entry"], {"card_id": card_id, "slot": slot})
+    
+    def send_lcd_exit(self, card_id: str, fee: int):
+        """Gửi thông báo xe ra hiển thị trên LCD"""
+        self.publish(MQTT_TOPICS["lcd_exit"], {"card_id": card_id, "fee": fee})
+    
+    def send_lcd_error(self, message: str):
+        """Gửi thông báo lỗi hiển thị trên LCD"""
+        self.publish(MQTT_TOPICS["lcd_error"], {"message": message})
     
     @property
     def is_connected(self) -> bool:

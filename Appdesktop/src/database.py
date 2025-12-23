@@ -68,6 +68,8 @@ def init_database():
 # === Card Operations ===
 
 def add_card(card_id: str, owner_name: str = "", plate_number: str = "", phone: str = "") -> bool:
+    # Normalize card_id: uppercase, strip whitespace
+    card_id = card_id.strip().upper()
     try:
         conn = get_connection()
         cursor = conn.cursor()
@@ -77,17 +79,25 @@ def add_card(card_id: str, owner_name: str = "", plate_number: str = "", phone: 
         )
         conn.commit()
         conn.close()
+        print(f"[DB] Card added successfully: {card_id}")
         return True
-    except sqlite3.IntegrityError:
+    except sqlite3.IntegrityError as e:
+        print(f"[DB] IntegrityError adding card {card_id}: {e}")
+        return False
+    except Exception as e:
+        print(f"[DB] Error adding card {card_id}: {e}")
         return False
 
 
 def get_card(card_id: str) -> Optional[Dict]:
+    # Normalize card_id: uppercase, strip whitespace
+    card_id = card_id.strip().upper()
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM cards WHERE card_id = ? AND is_active = 1", (card_id,))
     row = cursor.fetchone()
     conn.close()
+    print(f"[DB] get_card({card_id}): {row}")
     if row:
         return {"id": row[0], "card_id": row[1], "owner_name": row[2], "plate_number": row[3], "phone": row[4]}
     return None
@@ -99,6 +109,7 @@ def get_all_cards() -> List[Dict]:
     cursor.execute("SELECT * FROM cards WHERE is_active = 1 ORDER BY created_at DESC")
     rows = cursor.fetchall()
     conn.close()
+    print(f"[DB] get_all_cards: found {len(rows)} cards")
     return [{"id": r[0], "card_id": r[1], "owner_name": r[2], "plate_number": r[3], "phone": r[4]} for r in rows]
 
 
@@ -115,6 +126,8 @@ def delete_card(card_id: str) -> bool:
 # === Session Operations ===
 
 def create_session(card_id: str, plate_number: str, slot_number: int) -> int:
+    # Normalize card_id
+    card_id = card_id.strip().upper()
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
@@ -129,10 +142,13 @@ def create_session(card_id: str, plate_number: str, slot_number: int) -> int:
     )
     conn.commit()
     conn.close()
+    print(f"[DB] Created session {session_id} for card {card_id}, slot {slot_number}")
     return session_id
 
 
 def get_active_session(card_id: str) -> Optional[Dict]:
+    # Normalize card_id
+    card_id = card_id.strip().upper()
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
@@ -141,6 +157,7 @@ def get_active_session(card_id: str) -> Optional[Dict]:
     )
     row = cursor.fetchone()
     conn.close()
+    print(f"[DB] get_active_session({card_id}): {row}")
     if row:
         return {
             "id": row[0], "card_id": row[1], "plate_number": row[2], "slot_number": row[3],

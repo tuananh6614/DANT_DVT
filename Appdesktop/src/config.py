@@ -19,6 +19,12 @@ MQTT_TOPICS = {
     "entry_open": "parking/entry/open",      # App -> ESP32: mở barrier vào
     "exit_open": "parking/exit/open",        # App -> ESP32: mở barrier ra
     "status": "parking/status",              # App -> ESP32: trạng thái
+    "esp32_heartbeat": "parking/esp32/heartbeat",  # ESP32 -> App: heartbeat
+    "slot_status": "parking/slots/status",   # ESP32 -> App: trạng thái tất cả slot
+    "slot_change": "parking/slots/change",   # ESP32 -> App: slot thay đổi
+    "lcd_entry": "parking/lcd/entry",        # App -> ESP32: hiển thị xe vào
+    "lcd_exit": "parking/lcd/exit",          # App -> ESP32: hiển thị xe ra
+    "lcd_error": "parking/lcd/error",        # App -> ESP32: hiển thị lỗi
 }
 
 # Parking Configuration
@@ -30,4 +36,6 @@ PARKING_CONFIG = {
 }
 
 # Database
-DATABASE_PATH = "parking.db"
+import os
+_BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATABASE_PATH = os.path.join(_BASE_DIR, "parking.db")

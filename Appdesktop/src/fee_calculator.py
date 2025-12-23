@@ -10,6 +10,7 @@ from src.config import PARKING_CONFIG
 def calculate_fee(entry_time: datetime, exit_time: datetime = None) -> dict:
     """
     Tính phí gửi xe
+    Phí mặc định: 3000 VND khi vào
     
     Returns:
         dict: {fee, duration_minutes, hours_charged, breakdown}
@@ -24,27 +25,14 @@ def calculate_fee(entry_time: datetime, exit_time: datetime = None) -> dict:
     duration = exit_time - entry_time
     duration_minutes = int(duration.total_seconds() / 60)
     
-    # Miễn phí nếu dưới free_minutes
-    if duration_minutes <= PARKING_CONFIG["free_minutes"]:
-        return {
-            "fee": 0,
-            "duration_minutes": duration_minutes,
-            "hours_charged": 0,
-            "breakdown": "Miễn phí (dưới 15 phút)"
-        }
-    
-    # Tính số giờ (làm tròn lên)
-    hours = math.ceil(duration_minutes / 60)
-    fee = hours * PARKING_CONFIG["hourly_rate"]
-    
-    # Đảm bảo phí tối thiểu
-    fee = max(fee, PARKING_CONFIG["min_fee"])
+    # Phí mặc định 3000 VND
+    base_fee = 3000
     
     return {
-        "fee": fee,
+        "fee": base_fee,
         "duration_minutes": duration_minutes,
-        "hours_charged": hours,
-        "breakdown": f"{hours} giờ x {PARKING_CONFIG['hourly_rate']:,} = {fee:,} VND"
+        "hours_charged": 0,
+        "breakdown": f"Phí gửi xe: {base_fee:,} VND"
     }
 
 
